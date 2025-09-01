@@ -1,0 +1,8 @@
+/.pytest_cache/
+/.vscode/
+/report/json/
+/report/html/
+__pycache__/
+/doc/report/
+/doc/log/
+/venv/

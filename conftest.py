@@ -1,0 +1,97 @@
+import os
+import pytest
+from util.email_util import send_email
+from util.log_util import log
+# from playwright.sync_api import Page, Browser
+# from playwright.sync_api import sync_playwright
+from config import Web_Config
+
+# Global variable to store report path (shared between fixture and hook function)
+REPORT_PATH = os.path.join("doc", "report", "html", "test_report.html")
+
+@pytest.fixture(scope='session', autouse=True)
+def manage_report():
+    log.logger.info("Setting up report directory, cleaning if necessary")
+    report_dir = os.path.join("doc", "report")
+    # file_util.clean_directory(report_dir)
+    
+    yield  # This will run after all tests complete
+    
+    # If you want to send the email after all tests are done, don't do it here. 
+    # Report generation and email sending should be handled in a hook.
+
+@pytest.hookimpl(trylast=True) 
+def pytest_sessionfinish(session):
+    # Condition 1: Check if email sending is enabled via configuration
+    config: pytest.Config = session.config
+    send_report = config.getini("send_report").lower() == "true"
+    if not send_report:
+        log.logger.warning("Email sending is disabled via configuration")
+        return
+    
+    # Condition 2: Ensure report file exists and is not empty
+    if not (os.path.exists(REPORT_PATH) and os.path.getsize(REPORT_PATH) > 0):
+        log.logger.warning(f"Skipping email: Report file does not exist or is empty: {REPORT_PATH}")
+        return
+
+    # Condition 3: Check if any test cases were actually executed
+    test_counts = session.testscollected
+    if test_counts == 0:
+        log.logger.warning("Skipping email: No test cases were executed")
+        return
+    
+    # Send email after entire test session completes (report is generated)
+    log.logger.info("Session finished, preparing to send email with report")
+    sender_email = 'zhhot@sohu.com'
+    sender_password =  os.getenv("EMAIL_PASSWORD") 
+    receiver_email = 'zhhot@hotmail.com'
+    subject = 'Pytest Test Report'
+    body = 'Please find the attached Pytest test report.'
+    send_email(sender_email, sender_password, receiver_email, subject, body, REPORT_PATH)
+
+
+def pytest_addoption(parser):
+    parser.addini("send_report", "Send report after tests", default="false")
+
+# # Playwright fixtures
+# @pytest.fixture(scope="function")
+# def browser_page(playwright):
+#     """Fixture to provide a new browser page for each test"""
+#     browser = playwright.chromium.launch(headless=True)
+#     page = browser.new_page()
+#     yield page
+#     page.close()
+#     browser.close()
+    
+
+
+
+# @pytest.fixture(scope="session")
+# def playwright():
+#     """Playwright instance fixture"""
+#     with sync_playwright() as p:
+#         yield p
+
+# @pytest.fixture(scope="function")
+# def browser(playwright):
+#     """Browser instance fixture"""
+    
+#     if Web_Config.BROWSER_TYPE == "chromium":
+#         browser = playwright.chromium.launch(headless=Web_Config.HEADLESS_MODE)
+#     elif Web_Config.BROWSER_TYPE == "firefox":
+#         browser = playwright.firefox.launch(headless=Web_Config.HEADLESS_MODE)
+#     elif Web_Config.BROWSER_TYPE == "webkit":
+#         browser = playwright.webkit.launch(headless=Web_Config.HEADLESS_MODE)
+#     else:
+#         raise ValueError(f"Unsupported browser type: {Web_Config.BROWSER_TYPE}")
+    
+#     yield browser
+#     browser.close()
+
+# @pytest.fixture(scope="function")
+# def page(browser):
+#     """Page instance fixture"""
+#     page = browser.new_page()
+#     page.set_default_timeout(30000)  # Set default timeout
+#     yield page
+#     page.close()
